@@ -52,6 +52,7 @@ Data-Files:
                  data/templates/default.rst
                  data/templates/default.plain
                  data/templates/default.mediawiki
+                 data/templates/default.pmwiki
                  data/templates/default.dokuwiki
                  data/templates/default.rtf
                  data/templates/default.s5
@@ -356,6 +357,7 @@ Library
                    Text.Pandoc.Writers.Custom,
                    Text.Pandoc.Writers.Textile,
                    Text.Pandoc.Writers.MediaWiki,
+                   Text.Pandoc.Writers.PmWiki,
                    Text.Pandoc.Writers.DokuWiki,
                    Text.Pandoc.Writers.RTF,
                    Text.Pandoc.Writers.ODT,
