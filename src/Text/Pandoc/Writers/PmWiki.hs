@@ -43,6 +43,9 @@ import Network.URI ( isURI )
 import Control.Monad.Reader
 import Control.Monad.State
 
+import Debug.Trace
+notImplementedYet s = trace ("NotImplementedYet: " ++ s) undefined
+
 data WriterState = WriterState {
     stNotes     :: Bool            -- True if there are notes
   , stOptions   :: WriterOptions   -- writer options
@@ -179,7 +182,7 @@ blockToMediaWiki (Table capt aligns widths headers rows') = do
   return $ "{|\n" ++ caption ++ tableBody ++ "|}\n"
 -}
 blockToPmWiki (Table capt aligns widths headers rows') = do
-  return $ "FIXME table"
+  return $ notImplementedYet "table"
 
 blockToPmWiki x@(BulletList items) = do
   tags <- fmap (|| not (isSimpleList x)) $ asks useTags
@@ -189,7 +192,7 @@ blockToPmWiki x@(BulletList items) = do
         contents <- local (\ s -> s { useTags = True }) $ mapM listItemToMediaWiki items
         return $ "<ul>\n" ++ vcat contents ++ "</ul>\n"
         -}
-        return $ "FIXME <ul> bailout"
+        return $ notImplementedYet "<ul> bailout"
      else do
         lev <- asks listLevel
         contents <- local (\s -> s { listLevel = listLevel s ++ "*" }) $ mapM listItemToPmWiki items
@@ -203,7 +206,7 @@ blockToPmWiki x@(OrderedList attribs items) = do
         contents <- local (\s -> s { useTags = True }) $ mapM listItemToMediaWiki items
         return $ "<ol" ++ listAttribsToString attribs ++ ">\n" ++ vcat contents ++ "</ol>\n"
         -}
-        return $ "FIXME <ol> bailout"
+        return $ notImplementedYet "<ol> bailout"
      else do
         lev <- asks listLevel
         contents <- local (\s -> s { listLevel = listLevel s ++ "#" }) $ mapM listItemToPmWiki items
@@ -217,7 +220,7 @@ blockToPmWiki x@(DefinitionList items) = do
         contents <- local (\s -> s { useTags = True }) $ mapM definitionListItemToMediaWiki items
         return $ "<dl>\n" ++ vcat contents ++ "</dl>\n"
         -}
-        return $ "FIXME <dl> bailout"
+        return $ notImplementedYet "<dl> bailout"
      else do
         lev <- asks listLevel
         contents <- local (\s -> s { listLevel = listLevel s ++ ":" }) $ mapM definitionListItemToPmWiki items
@@ -244,7 +247,7 @@ listItemToPmWiki items = do
   contents <- blockListToPmWiki items
   tags <- asks useTags
   if tags
-     then return $ "FIXME <li>" -- was: "<li>" ++ contents ++ "</li>"
+     then return $ notImplementedYet "inline <li>" -- was: "<li>" ++ contents ++ "</li>"
      else do
        marker <- asks listLevel
        return $ marker ++ " " ++ contents
@@ -261,7 +264,7 @@ definitionListItemToPmWiki (label, items) = do
      then return $ "<dt>" ++ labelText ++ "</dt>\n" ++
            intercalate "\n" (map (\d -> "<dd>" ++ d ++ "</dd>") contents)
      -}
-     then return $ "FIXME <dt>"
+     then return $ notImplementedYet "inline <dt>"
      else do
        marker <- asks listLevel
        return $ marker ++ " " ++ labelText ++ "\n" ++
@@ -365,7 +368,7 @@ imageToPmWiki attr = do
       dims = go (toPx $ dimension Width attr) (toPx $ dimension Height attr)
       classes = if null cls
                    then ""
-                   else "FIXME image class"
+                   else notImplementedYet "image class"
   return $ dims ++ classes
 
 -- | Convert list of Pandoc block elements to PmWiki.
@@ -388,7 +391,7 @@ inlineToMediaWiki (Span attrs ils) = do
   return $ render Nothing (tagWithAttrs "span" attrs) ++ contents ++ "</span>"
 -}
 inlineToPmWiki (Span attrs ils) = do
-  return $ "FIXME span"
+  return $ notImplementedYet "span"
 
 inlineToPmWiki (Emph lst) = do
   contents <- inlineListToPmWiki lst
@@ -436,7 +439,7 @@ inlineToPmWiki (Str str) = return $ escapeString str
 inlineToMediaWiki (Math _ str) = return $ "<math>" ++ str ++ "</math>"
                                -- note:  str should NOT be escaped
 -}
-inlineToPmWiki (Math _ str) = return $ "FIXME math"
+inlineToPmWiki (Math _ str) = return $ notImplementedYet "math"
 
 inlineToPmWiki (RawInline f str)
   | f == Format "pmwiki" = return str
@@ -486,7 +489,7 @@ inlineToMediaWiki (Image attr alt (source, tit)) = do
   return $ "[[File:" ++ source ++ img ++ txt ++ "]]"
 -}
 inlineToPmWiki (Image attr alt (source, tit)) = do
-  return $ "FIXME inline image"
+  return $ notImplementedYet "inline image"
 
 {-
 inlineToMediaWiki (Note contents) = do
@@ -496,4 +499,4 @@ inlineToMediaWiki (Note contents) = do
   -- note - may not work for notes with multiple blocks
 -}
 inlineToPmWiki (Note contents) = do
-  return $ "FIXME Note issue"
+  return $ notImplementedYet "Note issue"
