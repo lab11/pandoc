@@ -54,7 +54,6 @@ data WriterState = WriterState {
 data WriterReader = WriterReader {
     options     :: WriterOptions -- Writer options
   , listLevel   :: String        -- String at beginning of list items, e.g. "**"
-  , useTags     :: Bool          -- True if we should use HTML tags because we're in a complex list
   }
 
 type PmWikiWriter = ReaderT WriterReader (State WriterState)
@@ -63,7 +62,7 @@ type PmWikiWriter = ReaderT WriterReader (State WriterState)
 writePmWiki :: WriterOptions -> Pandoc -> String
 writePmWiki opts document =
   let initialState = WriterState { stNotes = False, stOptions = opts }
-      env = WriterReader { options = opts, listLevel = [], useTags = False }
+      env = WriterReader { options = opts, listLevel = [] }
   in  evalState (runReaderT (pandocToPmWiki document) env) initialState
 
 -- | Return PmWiki representation of document.
@@ -119,12 +118,9 @@ blockToPmWiki (Para [Image attr txt (src,'f':'i':'g':':':tit)]) = do
 
 -- XXX
 blockToPmWiki (Para inlines) = do
-  tags <- asks useTags
   lev <- asks listLevel
   contents <- inlineListToPmWiki inlines
-  return $ if tags
-              then  "<p>" ++ contents ++ "</p>"
-              else contents ++ if null lev then "\n" else ""
+  return $ contents ++ if null lev then "\n" else ""
 
 -- XXX
 blockToPmWiki (RawBlock f str)
@@ -185,72 +181,39 @@ blockToPmWiki (Table capt aligns widths headers rows') = do
   return $ notImplementedYet "table"
 
 blockToPmWiki x@(BulletList items) = do
-  tags <- fmap (|| not (isSimpleList x)) $ asks useTags
-  if tags
-     then do
-        {- This code path bailed out to html lists in mediawiki, we can't
-        contents <- local (\ s -> s { useTags = True }) $ mapM listItemToMediaWiki items
-        return $ "<ul>\n" ++ vcat contents ++ "</ul>\n"
-        -}
-        return $ notImplementedYet "<ul> bailout"
-     else do
-        lev <- asks listLevel
-        contents <- local (\s -> s { listLevel = listLevel s ++ "*" }) $ mapM listItemToPmWiki items
-        return $ vcat contents ++ if null lev then "\n" else ""
+  lev <- asks listLevel
+  contents <- local (\s -> s { listLevel = listLevel s ++ "*" }) $ mapM listItemToPmWiki items
+  return $ vcat contents ++ if null lev then "\n" else ""
 
 blockToPmWiki x@(OrderedList attribs items) = do
-  tags <- fmap (|| not (isSimpleList x)) $ asks useTags
-  if tags
-     then do
-        {- This code path bailed out to html lists in mediawiki, we can't
-        contents <- local (\s -> s { useTags = True }) $ mapM listItemToMediaWiki items
-        return $ "<ol" ++ listAttribsToString attribs ++ ">\n" ++ vcat contents ++ "</ol>\n"
-        -}
-        return $ notImplementedYet "<ol> bailout"
-     else do
-        lev <- asks listLevel
-        contents <- local (\s -> s { listLevel = listLevel s ++ "#" }) $ mapM listItemToPmWiki items
-        return $ vcat contents ++ if null lev then "\n" else ""
+  lev <- asks listLevel
+  contents <- local (\s -> s { listLevel = listLevel s ++ "#" }) $ mapM listItemToPmWiki items
+  return $ vcat contents ++ if null lev then "\n" else ""
 
 blockToPmWiki x@(DefinitionList items) = do
-  tags <- fmap (|| not (isSimpleList x)) $ asks useTags
-  if tags
-     then do
-        {- This code path bailed out to html lists in mediawiki, we can't
-        contents <- local (\s -> s { useTags = True }) $ mapM definitionListItemToMediaWiki items
-        return $ "<dl>\n" ++ vcat contents ++ "</dl>\n"
-        -}
-        return $ notImplementedYet "<dl> bailout"
-     else do
-        lev <- asks listLevel
-        contents <- local (\s -> s { listLevel = listLevel s ++ ":" }) $ mapM definitionListItemToPmWiki items
-        return $ vcat contents ++ if null lev then "\n" else ""
+  lev <- asks listLevel
+  contents <- local (\s -> s { listLevel = listLevel s ++ ":" }) $ mapM definitionListItemToPmWiki items
+  return $ vcat contents ++ if null lev then "\n" else ""
 
 -- Auxiliary functions for lists:
 
 -- | Convert ordered list attributes to HTML attribute string
-{-
 listAttribsToString :: ListAttributes -> String
 listAttribsToString (startnum, numstyle, _) =
   let numstyle' = camelCaseToHyphenated $ show numstyle
   in  (if startnum /= 1
-          then " start=\"" ++ show startnum ++ "\""
+          then notImplementedYet "<ol> not starting at 1" --" start=\"" ++ show startnum ++ "\""
           else "") ++
-      (if numstyle /= DefaultStyle
-          then " style=\"list-style-type: " ++ numstyle' ++ ";\""
+      (if and [numstyle /= DefaultStyle, numstyle /= Decimal]
+          then notImplementedYet "<ol> with custom styling" --" style=\"list-style-type: " ++ numstyle' ++ ";\""
           else "")
--}
 
 -- | Convert bullet or ordered list item (list of blocks) to PmWiki.
 listItemToPmWiki :: [Block] -> PmWikiWriter String
 listItemToPmWiki items = do
   contents <- blockListToPmWiki items
-  tags <- asks useTags
-  if tags
-     then return $ notImplementedYet "inline <li>" -- was: "<li>" ++ contents ++ "</li>"
-     else do
-       marker <- asks listLevel
-       return $ marker ++ " " ++ contents
+  marker <- asks listLevel
+  return $ marker ++ " " ++ contents
 
 -- | Convert definition list item (label, list of blocks) to PmWiki.
 definitionListItemToPmWiki :: ([Inline],[[Block]])
@@ -258,17 +221,9 @@ definitionListItemToPmWiki :: ([Inline],[[Block]])
 definitionListItemToPmWiki (label, items) = do
   labelText <- inlineListToPmWiki label
   contents <- mapM blockListToPmWiki items
-  tags <- asks useTags
-  if tags
-     {- Can't bail out to html in pmwiki
-     then return $ "<dt>" ++ labelText ++ "</dt>\n" ++
-           intercalate "\n" (map (\d -> "<dd>" ++ d ++ "</dd>") contents)
-     -}
-     then return $ notImplementedYet "inline <dt>"
-     else do
-       marker <- asks listLevel
-       return $ marker ++ " " ++ labelText ++ "\n" ++
-           intercalate "\n" (map (\d -> init marker ++ ": :" ++ d) contents)
+  marker <- asks listLevel
+  return $ marker ++ " " ++ labelText ++ "\n" ++
+      intercalate "\n" (map (\d -> init marker ++ ": :" ++ d) contents)
 
 -- | True if the list can be handled by simple wiki markup, False if HTML tags will be needed.
 -- XXX
@@ -310,6 +265,10 @@ isPlainOrPara _         = False
 -- | Concatenates strings with line breaks between them.
 vcat :: [String] -> String
 vcat = intercalate "\n"
+
+-- | Concatenates strings with nothing between them.
+cat :: [String] -> String
+cat = intercalate ""
 
 -- Auxiliary functions for tables:
 
@@ -375,7 +334,7 @@ imageToPmWiki attr = do
 blockListToPmWiki :: [Block]       -- ^ List of block elements
                   -> PmWikiWriter String
 blockListToPmWiki blocks =
-  fmap vcat $ mapM blockToPmWiki blocks
+  fmap cat $ mapM blockToPmWiki blocks
 
 -- | Convert list of Pandoc inline elements to PmWiki.
 inlineListToPmWiki :: [Inline] -> PmWikiWriter String
